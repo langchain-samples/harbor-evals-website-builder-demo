@@ -2,7 +2,20 @@
 __pycache__/
 *.egg-info/
 .DS_Store
+
+# Secrets. .env.example is the tracked template and carries no values.
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.jks
+credentials.json
+token.json
+.git-credentials
 
 # Per-session generated sites, eval output, Harbor scratch.
 workspaces/
