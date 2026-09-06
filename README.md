@@ -456,40 +456,6 @@ page is good, and the form does not work.
 
 ---
 
-## What is verified, and what is not
-
-Being precise about this is what makes the demo defensible under questioning.
-
-**Verified.**
-
-- The form failure is deterministic. The agent produced `<form action="#"
-  method="post">` with zero `<script>` tags on 6 of 6 runs across three
-  environments (local, local Docker, and a LangSmith sandbox), and
-  `controls_work` failed every time.
-- `brief_coverage` returns 1.00 on the recorded page in both evaluations.
-- The oracle solution reaches `reward 1.0` locally, so the task is passable.
-- `make verify` gates both directions: the recorded page must fail for the
-  right reason, and the reference solution must still score 1.0.
-
-**Not verified, so do not promise it.**
-
-- No live LLM-judge score has been observed. Run `make judge` once before
-  presenting and read the real numbers.
-- `make attempts` and `make haiku` have not been run, so "five out of five" and
-  "both model tiers" are not yet claims you can make.
-- `--agent oracle` has not been run end to end through Harbor.
-
-**Known weaknesses.**
-
-- `controls_work` is reward-hackable. A visible confirmation message with no
-  network request behind it would pass.
-- `validation_works` is run-dependent. It only fails when the agent adds
-  `novalidate`, and one sandbox run omitted it and correctly passed.
-- `responsive` and `validation_works` are not mentioned in `instruction.md`, so
-  this task does not meet a strict specification-completeness bar.
-
----
-
 ## Notes from building it
 
 The non-obvious things, recorded so nobody has to rediscover them.
