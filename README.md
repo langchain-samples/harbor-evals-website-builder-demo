@@ -1,59 +1,86 @@
-# Site Builder — one agent, two evals
+# Site Builder: evaluating a deep agent with Harbor
 
-A barebones Lovable: type *"a landing page for my bike shop"* and watch a
-deep agent build it file by file in a live preview. Then grade **that same
-agent** two ways — an LLM judge reading the output, and a containerized
-verifier that serves the site and drives a real browser.
+A minimal website builder driven by a LangChain deep agent, scored two ways:
+once by a traditional LangSmith evaluation that reads the agent's output, and
+once by a Harbor evaluation that runs the site in a container and drives a real
+browser against it.
 
-They agree on everything they can both see. They disagree about one thing,
-and it is the thing that matters.
-
-> **If you'd have to click the button to know whether it worked, grading the
-> output can't get you there.**
+The two evaluations agree on every check they can both perform. They disagree
+on exactly one, and that disagreement is the point of this repository.
 
 ---
 
-## The punchline
+## Purpose and background
 
-Same agent, same brief, same run — scored twice:
+**Traditional evaluations read what the agent produced.** You assemble a
+dataset of inputs, run the agent across them, and score the outputs with code
+assertions, string matching, or an LLM judge. This works well when the output
+*is* the answer: a summary, a classification, a SQL query, a drafted reply.
+The artifact under test and the thing being graded are the same object, so
+reading one tells you about the other.
 
-|                                | traditional eval | Harbor eval |
-| ------------------------------ | ---------------- | ----------- |
-| is the markup sound            | **1.00**         | **1.00**    |
-| did it cover the brief         | **1.00**         | **1.00**    |
-| design quality (LLM judge)     | judge            | *n/a*       |
-| does it work on a phone        | *no such check*  | **1.00**    |
-| any runtime errors             | *no such check*  | **1.00**    |
-| **does the form submit**       | ***no such check*** | **0.00** |
-|                                |                  | **reward 0.00** |
+**Deep agents break that equivalence.** A deep agent plans, delegates to
+subagents, and writes to a filesystem across many turns. What it returns is not
+an answer but a change to a world: files on disk, a migrated schema, a
+restructured repository, a website that now exists. The final message is a
+*report about* that world rather than the world itself. Grade the report, or
+the transcript, and you learn what the agent believed it accomplished. That
+belief can be entirely accurate while the artifact it describes is broken,
+because "I wrote the file" and "the file does its job" are different claims and
+only the first one appears in a trace.
 
-The agent writes this, every single time:
+**Harbor closes that gap.** Harbor is an evaluation harness that provisions an
+isolated environment per trial, runs the agent inside it, then executes a
+verifier against the environment the agent leaves behind. Because the verifier
+runs in that same environment, it can do what a judge cannot: serve the site,
+start a browser, fill in a form, click the button, and assert on what actually
+happens. Harbor's contract is deliberately narrow. Write a number to
+`/logs/verifier/reward.json`, and Harbor supplies everything around it, namely
+per-trial provisioning, parallel fan-out, repeated attempts for variance, and
+reporting into LangSmith.
 
-```html
-<form action="#" method="post" novalidate>
-  <label for="email">Email address</label>
-  <input type="email" id="email" name="email" autocomplete="email" required>
-```
+**So the two approaches answer different questions.** A traditional evaluation
+answers "does this output look correct," which is cheap, fast, and broad enough
+to run on everything. A Harbor evaluation answers "does the software the agent
+produced actually work," which is slower and more expensive but is the only one
+of the two that can gate a release. For deep agent tasks, where the deliverable
+is a working artifact rather than a piece of text, the second question is
+usually the one you needed answered.
 
-Labels tied to inputs, `type=email`, `required`, autocomplete hints. Nobody
-blocks that in review. There is also zero JavaScript on the page, so
-`required` does nothing, `novalidate` cancels what is left, and the POST goes
-nowhere. Click Submit on a static site and you get:
+This repository demonstrates that difference on a single concrete artifact.
 
-```
-Error code: 501
-Message: Unsupported method ('POST').
-```
-
-Harbor is not saying the page is bad. It is saying the page is good **and the
-form does not work.** That distinction is the whole demo.
+> **The rule it illustrates:** if you would have to click the button to know
+> whether it worked, grading the output cannot get you there.
 
 ---
 
-## How it works
+## Demo context
 
-One graph. The only thing that changes between the product and the eval is
-which directory it builds into.
+The product is a stripped-down Lovable. You type a brief into a chat pane and
+watch a website appear in a live preview beside it, file by file, as the agent
+writes it.
+
+<!-- SCREENSHOT: the chat UI at localhost:8000, mid-build, chat on the left and live preview on the right -->
+
+The agent is built with [deepagents](https://github.com/langchain-ai/deepagents)
+and has four things worth knowing about:
+
+| piece | what it does |
+| --- | --- |
+| a planner | writes a todo list before touching any files, so multi-page briefs get real structure |
+| a filesystem backend | reads and writes the site directory directly, which is what makes follow-up turns edits rather than rebuilds |
+| two subagents | `page-builder` composes one page at a time, `site-reviewer` reads the finished site cold and reports problems |
+| `check_site` | a structural linter the agent calls on its own output before claiming it is done |
+
+House rules live in [`deep-agent/AGENTS.md`](deep-agent/AGENTS.md), which is
+inlined into the system prompt on every run. Editing that markdown file changes
+what the product ships without touching any code.
+
+### One graph, two runtimes
+
+This is the structural claim of the demo. There is no test double and no
+re-implementation. The same graph serves the product and both evaluations, and
+the only thing that changes is which directory it builds into.
 
 ```
                         deep-agent/agent.py
@@ -76,161 +103,248 @@ which directory it builds into.
                                             LangSmith experiment
 ```
 
-No test double, no re-implementation. `deep-agent/agent.py` is imported by the
-chat UI *and* by the traditional eval, and staged into every Harbor trial
-container by `--ak project_path=./deep-agent`.
-
-**The agent itself** is [deepagents](https://github.com/langchain-ai/deepagents):
-a planner (`write_todos`), a filesystem backend, two subagents
-(`page-builder`, `site-reviewer`), and one custom tool — `check_site`, a
-structural linter it calls on itself before claiming it is done.
-
----
-
-## Setup
+### Running it
 
 ```bash
-uv sync
-uv run playwright install chromium
-cp .env.example .env        # then add LANGSMITH_API_KEY
+make setup
 ```
 
-Or just `make setup`.
-
-Model credentials come from the ambient environment (`ANTHROPIC_API_KEY`, plus
-`ANTHROPIC_BASE_URL` if you route through a gateway). **Keep them out of
-`.env`** — plain `load_dotenv()` never overrides an already-set variable,
-which is what lets the ambient value win.
-
-Two free, no-model sanity checks before you present anything:
+That installs dependencies, fetches Chromium for the verifier, and reminds you
+to add `LANGSMITH_API_KEY` to `.env`. Model credentials come from the ambient
+environment (`ANTHROPIC_API_KEY`, plus `ANTHROPIC_BASE_URL` if you route
+through a gateway). Keep those two out of `.env`, because plain `load_dotenv()`
+never overrides an already-set variable and that is what lets the ambient value
+win.
 
 ```bash
-make verify      # the verifier is sound — bad page fails, solution scores 1.0
-make snapshot    # the LangSmith sandbox snapshot exists and is ready
+make ui
+```
+
+Open http://localhost:8000 and type *"A landing page for Rye & Co, a sourdough
+bakery in Portland."* A cold build takes roughly 65 seconds and five tool
+calls. Watch the order of operations in the chat pane, because that ordering is
+the deep agent behaviour: it plans first, reads `styles.css` before writing
+anything so it composes from existing design tokens instead of inventing a
+palette, writes the page, then calls `check_site` on itself.
+
+Follow up with *"make the hero darker."* That takes about 20 seconds and one
+`edit_file` call. The site is on disk and the thread is checkpointed, so a
+second turn edits the existing site rather than regenerating it.
+
+The graph also runs in LangGraph Studio, which is the fastest way to see the
+subagent calls as a graph:
+
+```bash
+cd deep-agent && uv run langgraph dev
 ```
 
 ---
 
-## The demo, end to end
+## Traditional evals
 
-Five acts, ~15 minutes. The speakable script — including the staging, the
-pauses, and five rehearsed objections — is in **[DEMO.md](DEMO.md)**.
+This is the evaluation most teams building on agents already have, and it is
+implemented here in full rather than as a strawman.
 
-### 1. The product · `make ui`
-
-http://localhost:8000. Type *"A landing page for Rye & Co, a sourdough bakery
-in Portland."*
-
-Watch the **order** in the left pane, because that is the deep-agent story: it
-writes a plan, reads `styles.css` before writing anything (composing from
-existing design tokens rather than inventing a palette), writes the page, then
-calls `check_site` to grade its own work. ~65s, 5 tool calls.
-
-Then *"make the hero darker"* — 20s, one `edit_file`. The site is on disk and
-the thread is checkpointed, so a follow-up is an edit, not a rebuild.
-
-Open [`deep-agent/AGENTS.md`](deep-agent/AGENTS.md) — the house rules the agent
-reads on every run. Someone who doesn't write code changes what this ships by
-editing markdown.
-
-### 2. The eval most teams already have · `make judge`
-
-Five briefs, five evaluators, results in LangSmith as `site-builder-briefs`.
-Open the judge's reasoning and read it out loud — it cites `aria-describedby`
-and checks that labels are associated with the right inputs. **The point of
-this act is to make the judge credible.** Don't rush it.
-
-### 3. The transition · `make page`
-
-Serves the exact page the traditional eval scored 1.00/1.00
-(`demo-pages/halden-cycles-scored/`). Scroll it. Put the form's source on
-screen. Ask whether anyone would block it in review.
-
-Then: *"Let's just look at the thing."* Click Submit with every field empty.
-
-**Never announce the break.** The moment you say "watch, it's broken," you've
-lost it.
-
-### 4. Harbor · `make harbor` (or `make results` for the last run)
-
-```
-renders             1.0
-brief_coverage      1.0
-controls_work       0.0   nothing happened on submit — no request,
-validation_works    1.0      no confirmation (6 fields filled)
-responsive          1.0
-no_errors           1.0
-REWARD              0.0
-```
-
-`brief_coverage` is *literally the same function* on both sides. The two evals
-agree on everything they can both see.
-
-### 5. Close
-
-The obvious objection is "just read the trace." The trace shows `write_file`
-succeeded — accurate, and useless here. One failure is **an event that didn't
-happen**; the other is **a change in whether something still works**. Neither
-is in a transcript of what the agent did.
-
----
-
-## The two evals
-
-### Traditional — `traditional/run_eval.py`
-
-A LangSmith dataset of five briefs, graded by four evaluators plus one
+[`traditional/run_eval.py`](traditional/run_eval.py) creates a LangSmith
+dataset of five briefs and scores each run with four evaluators plus one
 recorded metric:
 
-| evaluator | kind | asks |
+| evaluator | kind | what it asks |
 | --- | --- | --- |
-| `no_structural_errors` | code | doctype, `lang`, title, viewport, one `h1`, alt text, links and stylesheets that resolve |
-| `brief_coverage` | code | did the page contain what the brief asked for |
-| `design_quality` | LLM judge | is this a good-looking, well-composed page |
-| `follows_house_rules` | LLM judge | does it comply with `AGENTS.md` |
-| `tool_calls` | recorded | how much work did it actually do |
+| `no_structural_errors` | code | doctype, `lang`, title, viewport, exactly one `h1`, alt text on images, internal links and stylesheet references that resolve |
+| `brief_coverage` | code | did the page actually contain what the brief asked for |
+| `design_quality` | LLM judge | is this a well-composed, credible-looking page |
+| `follows_house_rules` | LLM judge | does it comply with the rules in `AGENTS.md` |
+| `tool_calls` | recorded | how much work did it do, so effort is visible at all |
 
-**Make the judge genuinely strong.** It is not weakened to manufacture the
-result — it is asked only about things code cannot judge, and it is right
-about them. Not one evaluator opens a browser. That is the whole point.
+The split is deliberate. The code evaluators are cheap, deterministic, and
+cover considerably more than people expect. The judge is asked only about the
+things code genuinely cannot assess. It is not weakened to manufacture a
+result: on the booking-form brief it cites `aria-describedby` and verifies that
+labels are associated with the correct inputs. If that came back on a pull
+request, you would be pleased with it.
 
 ```bash
-uv run python traditional/run_eval.py --offline        # code evaluators, no model
-uv run python traditional/run_eval.py --dataset-only   # sync the dataset only
-uv run python traditional/run_eval.py --run            # the real thing
-uv run python traditional/run_eval.py --run --limit 1 --no-judges
+make judge                                                   # all five briefs
+make judge-quick                                             # one brief, no judges
+uv run python traditional/run_eval.py --offline              # code evaluators, no model
+uv run python traditional/run_eval.py --dataset-only         # sync the dataset only
 ```
 
-### Harbor — `dataset/`
+Results land in LangSmith as the `site-builder-briefs` experiment.
 
-A standard Harbor task directory:
+<!-- SCREENSHOT: LangSmith `site-builder-briefs` experiment, evaluator columns green across the row -->
+
+<!-- SCREENSHOT: the judge's reasoning expanded on the halden-cycles-booking-form row -->
+
+On the `halden-cycles-booking-form` brief, the code evaluators return **1.00
+for structure and 1.00 for coverage.** Every requirement in the brief is
+present and the markup is sound. Nothing here is a lucky pass or a rigged
+rubric, and that matters for what comes next.
+
+---
+
+## What the traditional eval misses
+
+Here is the page the evaluation just scored. Serve it and click through it
+yourself:
+
+```bash
+make page
+```
+
+<!-- SCREENSHOT: the rendered Halden Cycles page, hero and services and booking form -->
+
+Scroll to the booking form and read its source:
+
+```html
+<form action="#" method="post" novalidate>
+  <label for="email">Email address</label>
+  <input type="email" id="email" name="email" autocomplete="email" required>
+```
+
+Labels tied to inputs, `type="email"`, `required` on the fields that matter,
+autocomplete hints. This is the markup you would want. Nobody blocks it in
+review, and every source-reading check in the previous section passes it,
+correctly.
+
+Now submit it with every field empty.
+
+<!-- SCREENSHOT: the browser showing "Error code: 501, Message: Unsupported method ('POST')" -->
 
 ```
-dataset/halden-cycles-booking-form/
-├── task.toml            # timeouts, resources, SITE_DIR
-├── instruction.md       # the brief handed to the agent
-├── environment/
-│   ├── Dockerfile       # python:3.12-slim-bookworm + chromium
-│   └── site/            # the scaffold the agent starts from
-├── tests/
-│   ├── test.sh          # Harbor runs this; writes reward.json
-│   ├── check.py         # thin — this brief's coverage, ~5 lines
-│   └── functional.py    # generated copy of dataset/_shared/functional.py
-└── solution/solve.sh    # oracle reference — scores 1.0
+Error code: 501
+Message: Unsupported method ('POST').
 ```
 
-Harbor's contract is small: **write a number to
-`/logs/verifier/reward.json`.** Everything else is your choice. Ours runs a
-browser because the artifact is a website; Harbor's own examples use pytest.
-Playwright is not part of Harbor and is not its recommended default.
+Two separate failures happen at once.
 
-### The generic half — `dataset/_shared/functional.py`
+**The validation is decorative.** Every field carries `required`, and the form
+also carries `novalidate`, which cancels all of it. There is no JavaScript on
+the page to make up the difference, so an empty form submits.
 
-This is the file to open when someone accuses you of writing a check to catch
-a bug you already found. There is **no business name and no brief in it.** The
-organising idea:
+**The submission goes nowhere.** A static site has nothing listening for a
+POST, so the customer sees a server error instead of the bike shop's site. If
+this were live, someone would believe they had booked a repair and the shop
+would never hear from them.
 
-> **Hold the page to the promises its own markup makes.**
+Neither failure is visible to any check that reads the source. The first is a
+*combination* of two attributes that are individually correct. The second is
+**an event that did not happen**, and absence of an event is not something a
+document contains. Reading the trace does not help either, because
+`write_file` genuinely did succeed and the trace says so accurately.
+
+So the transition is not "the traditional eval was bad." The traditional eval
+was right about everything it examined. The question is what check would have
+caught this, and the answer is the one that fills in the form and clicks the
+button.
+
+---
+
+## Harbor evals
+
+### What a Harbor eval is
+
+Harbor evaluates an agent by running it inside an environment and then grading
+the environment, not the transcript. A Harbor **task** is a directory with four
+parts:
+
+| part | role |
+| --- | --- |
+| `instruction.md` | the brief handed to the agent, and nothing else |
+| `environment/` | a Dockerfile describing the world the agent wakes up in |
+| `tests/` | the verifier, run after the agent finishes |
+| `solution/` | a reference answer, used to prove the task is passable |
+
+A **trial** is one run of one agent against one task. Harbor provisions the
+environment, runs the agent inside it, copies `tests/` in, executes
+`tests/test.sh`, and reads the result. The verifier's only obligation is to
+write a JSON object of metric names to scores at
+`/logs/verifier/reward.json`. Harbor is agnostic about how it arrives at those
+numbers.
+
+That narrow contract is what makes the approach general. Harbor's own examples
+use pytest. This project runs a browser because the artifact is a website.
+Playwright is our choice here, not a Harbor requirement or default.
+
+Everything else is infrastructure Harbor provides so you do not build it
+yourself: an environment per trial, the agent-under-test as a swappable
+component, parallel fan-out, repeated attempts to measure variance, and the
+plumbing that turns a job into a LangSmith experiment with reward, cost, token
+counts, and the agent's own trace attached.
+
+### Setting it up in this project
+
+The task lives in [`dataset/`](dataset/):
+
+```
+dataset/
+├── _shared/functional.py                 # the generic browser suite, shared by every task
+├── sync.py                               # vendors _shared into each task's tests/
+├── harbor-job.json                       # the job config: snapshot, agent, tasks, artifacts
+└── halden-cycles-booking-form/
+    ├── task.toml                         # timeouts, resources, SITE_DIR
+    ├── instruction.md                    # the same brief the traditional eval uses
+    ├── environment/
+    │   ├── Dockerfile                    # python:3.12-slim-bookworm + Chromium
+    │   └── site/                         # the scaffold the agent starts from
+    ├── tests/
+    │   ├── test.sh                       # Harbor's entrypoint
+    │   ├── check.py                      # this brief's coverage check, roughly five lines
+    │   └── functional.py                 # generated copy of _shared/functional.py
+    └── solution/solve.sh                 # oracle reference, scores 1.0
+```
+
+Three setup details are worth calling out because each one exists in response
+to a specific failure rather than a preference.
+
+**The agent is staged into the container, not reimplemented.**
+`harbor-job.json` points Harbor's LangGraph agent at `./deep-agent`, and it
+runs the graph named in `langgraph.json`. `configurable.cwd` and the
+`SITE_DIR` environment variable both point at `/app/site`, which is also the
+directory the verifier inspects. Without `SITE_DIR` the agent falls back to a
+per-thread workspace and the verifier finds an empty site.
+
+**`functional.py` is vendored into each task, not imported.** Harbor uploads a
+task's `tests/` directory on its own, so a verifier can only import what sits
+beside it. Edit the shared source, then run `make sync` before any Harbor run.
+The Makefile targets already depend on it.
+
+**Trials run on a pre-built LangSmith sandbox snapshot.** Building the image
+server-side takes minutes, so build it once and pin it:
+
+```bash
+make snapshot        # must print status: ready
+```
+
+<!-- SCREENSHOT: LangSmith Sandboxes page showing the site-builder-playwright snapshot as ready -->
+
+Each trial then gets its own container, torn down afterwards. That isolation is
+not decoration: this evaluation runs a browser *and* gives an agent shell
+access, per trial, in parallel. The same reasoning applies to the builder
+itself, whose local `LocalShellBackend` is explicitly unsandboxed and would
+need a sandbox per session in any deployed version.
+
+Three CLI flags cannot live in the JSON config and are load-bearing. They are
+kept in the `HARBOR_ARGS` block of the [Makefile](Makefile):
+
+- `--env-file .env`, because the Harbor CLI does not read `.env` itself and the
+  LangSmith plugin hard-fails without `LANGSMITH_API_KEY`
+- `--ae ANTHROPIC_BASE_URL=...`, because Harbor forwards `ANTHROPIC_API_KEY`
+  but not the base URL, so a gateway-scoped key gets a 401 from
+  `api.anthropic.com`
+- `--plugin langsmith --pk dataset_name=...`, because plugins are not part of
+  `JobConfig`
+
+### What we are measuring
+
+The verifier has two layers, and separating them is what keeps the evaluation
+honest.
+
+**The generic layer** is
+[`dataset/_shared/functional.py`](dataset/_shared/functional.py). It contains
+no business name and no brief. Its organising idea is to hold the page to the
+promises its own markup makes:
 
 ```
 <a href="x">           I lead somewhere
@@ -242,67 +356,82 @@ type="email"           I will refuse a non-address
 meta viewport          I work on a phone
 ```
 
-Every check asserts one of those, giving five reusable metrics — `renders`,
-`controls_work`, `validation_works`, `responsive`, `no_errors` — that any
-web-authoring task can inherit. Each task adds its own thin coverage check on
-top; `reward` is conjunctive across both, so a flawless page that ignored the
-brief is not a pass, and neither is a page that says all the right things and
-does nothing.
+Every check asserts one of those declarations, which yields five metrics any
+web-authoring task can inherit:
 
-Two fairness rules, because an unsatisfiable check is a broken eval:
+| metric | how it is measured |
+| --- | --- |
+| `renders` | the page loads, and every link, image, and stylesheet it declares resolves |
+| `controls_work` | fill the form, submit it, and confirm the submission reached somewhere useful or produced a visible confirmation |
+| `validation_works` | submit an empty form and confirm it is refused, but only if the markup declared validation |
+| `responsive` | load at 375px wide and measure horizontal overflow |
+| `no_errors` | no console errors and no failed requests while the page loads |
 
-- only assert against declarations that are **actually present** (no `<form>`
-  → `controls_work` is skipped, not failed)
-- honour anything the markup declares inert (`disabled`, `aria-disabled`) and
-  skip anything off-origin, which an offline verifier cannot resolve
+Two fairness rules apply, because a check nothing can satisfy is as broken as
+one nothing can fail. The suite only asserts against declarations that are
+actually present, so a page with no `<form>` has `controls_work` skipped rather
+than failed. And it honours anything the markup declares inert, such as
+`disabled` or `aria-disabled`, and skips off-origin resources an offline
+verifier cannot resolve.
 
-The site is served over HTTP from a **subpath** (`/preview/`), never from the
-server root and never over `file://`. At the root, `href="/styles.css"`
-resolves and an absolute-path bug hides; from a subpath it 404s, exactly as it
-does in the real preview.
+One implementation detail carries real weight: the site is served over HTTP
+from a subpath, never from the server root and never over `file://`. At the
+root, `href="/styles.css"` resolves and an absolute-path bug hides. From a
+subpath it 404s, exactly as it does in the real preview.
 
-```bash
-make sync    # vendor _shared/functional.py into each task (Harbor uploads
-             # tests/ on its own; a verifier can only import what sits beside it)
-```
+**The task-specific layer** is
+[`tests/check.py`](dataset/halden-cycles-booking-form/tests/check.py), which is
+deliberately thin. Three constants and one function ask whether the page
+mentioned Halden and Minneapolis, listed at least three prices, and included a
+form with at least three labelled fields. It contributes a single metric,
+`brief_coverage`.
 
----
+`reward` is conjunctive across both layers. A flawlessly working page that
+ignored the brief is not a pass, and neither is a page that says all the right
+things and does nothing.
 
-## Running on LangSmith sandboxes
-
-Each trial gets its own container, torn down after. That is not decoration:
-this eval runs a browser **and** hands an agent shell access, per trial, in
-parallel.
-
-Build the snapshot once (a server-side image build — minutes, not seconds):
-
-```bash
-make snapshot        # prints status: ready
-```
-
-Then run trials against it. `dataset/harbor-job.json` pins the snapshot, so
-runs skip the build:
+### Running it
 
 ```bash
 make harbor                    # one trial
-make attempts ATTEMPTS=5       # five — one run is not an estimate
-make haiku                     # same task, cheaper model tier
-make oracle                    # the reference solution — proves 1.0 is reachable
+make attempts ATTEMPTS=5       # five trials, because one run is not an estimate
+make haiku                     # the same task on a cheaper model tier
+make oracle                    # the reference solution, proving 1.0 is reachable
+make results                   # print the last result without spending anything
 ```
 
-Roughly **$0.20 and 90 seconds per trial.** Results land as a LangSmith
-experiment with `reward` and every sub-metric as feedback keys, the agent's own
-trace attached, plus tokens and cost.
+A trial costs roughly $0.20 and takes about 90 seconds.
 
-Three flags are load-bearing and cannot live in the JSON config — see the
-`HARBOR_ARGS` block in the [Makefile](Makefile):
+<!-- SCREENSHOT: LangSmith Harbor experiment, per-metric feedback columns with controls_work at 0.00 -->
 
-- `--env-file .env` — the Harbor CLI does not read `.env` itself, and the
-  LangSmith plugin hard-fails without `LANGSMITH_API_KEY`
-- `--ae ANTHROPIC_BASE_URL=...` — Harbor forwards `ANTHROPIC_API_KEY` but
-  **not** the base URL, so a gateway-scoped key 401s against `api.anthropic.com`
-- `--plugin langsmith --pk dataset_name=...` — plugins are not part of
-  `JobConfig`
+```
+renders             1.0
+brief_coverage      1.0
+controls_work       0.0   nothing happened on submit — no request,
+validation_works    1.0      no confirmation (6 fields filled)
+responsive          1.0
+no_errors           1.0
+REWARD              0.0
+```
+
+### The comparison
+
+|                            | traditional eval | Harbor eval |
+| -------------------------- | ---------------- | ----------- |
+| is the markup sound        | 1.00             | 1.00        |
+| did it cover the brief      | 1.00             | 1.00        |
+| design quality              | judge            | not assessed |
+| does it work on a phone     | no such check    | 1.00        |
+| any runtime errors          | no such check    | 1.00        |
+| **does the form submit**    | **no such check** | **0.00**   |
+|                            |                  | **reward 0.00** |
+
+`brief_coverage` is the same function on both sides, written once and called by
+both evaluations. The two agree on every check they can both make.
+
+Note also what Harbor does *not* say. It does not score this page zero across
+the board, which would be grounds for suspecting a rigged rubric. It says the
+page is good, and the form does not work.
 
 ---
 
@@ -310,88 +439,83 @@ Three flags are load-bearing and cannot live in the JSON config — see the
 
 | path | what it is |
 | --- | --- |
-| `deep-agent/agent.py` | the agent — subagents, `check_site`, `make_graph` for Harbor |
+| `deep-agent/agent.py` | the agent: subagents, `check_site`, and `make_graph` for Harbor |
 | `deep-agent/AGENTS.md` | house rules, read every run, editable without touching code |
-| `deep-agent/sitecheck.py` | structural checks — the agent's linter *and* a grading rubric |
-| `deep-agent/langgraph.json` | graph + container dependency pins |
-| `server.py` · `static/index.html` | FastAPI chat UI: SSE stream, live preview, file tree |
-| `scaffold/` | `styles.css` design tokens + placeholder page, seeded per session |
-| `traditional/run_eval.py` | the LLM-judge eval: 5 briefs, 5 evaluators |
-| `dataset/_shared/functional.py` | the generic browser suite — 5 reusable metrics |
+| `deep-agent/sitecheck.py` | structural checks, used as the agent's linter and as a grading rubric |
+| `deep-agent/langgraph.json` | graph name and container dependency pins |
+| `server.py`, `static/index.html` | the chat UI: SSE stream, live preview, file tree |
+| `scaffold/` | design-token stylesheet and placeholder page, seeded per session |
+| `traditional/run_eval.py` | the traditional evaluation: five briefs, five evaluators |
+| `dataset/_shared/functional.py` | the generic browser suite, five reusable metrics |
 | `dataset/halden-cycles-booking-form/` | the Harbor task |
-| `dataset/harbor-job.json` | Harbor job config (snapshot pin, agent kwargs, artifacts) |
-| `demo-pages/halden-cycles-scored/` | the recorded artifact the traditional eval scored 1.00 |
-| `build_snapshot.py` | builds/inspects the LangSmith sandbox snapshot |
+| `dataset/harbor-job.json` | Harbor job config: snapshot pin, agent kwargs, artifacts |
+| `demo-pages/halden-cycles-scored/` | the recorded page the traditional eval scored 1.00 |
+| `build_snapshot.py` | builds and inspects the LangSmith sandbox snapshot |
 | `scripts/verify.py` | free gate: is the verifier still sound |
-| `DEMO.md` | the speakable talk track |
-
-Also runnable in LangGraph Studio, the quickest way to see the subagent calls
-as a graph:
-
-```bash
-cd deep-agent && uv run langgraph dev
-```
+| `DEMO.md` | the speakable talk track for presenting this |
 
 ---
 
 ## What is verified, and what is not
 
-Being straight about this is what makes the demo defensible.
+Being precise about this is what makes the demo defensible under questioning.
 
 **Verified.**
 
-- The form failure is deterministic — `<form action="#" method="post">` with
-  zero `<script>` tags, on **6 of 6 runs across three environments** (local,
-  local Docker, LangSmith sandbox). `controls_work` failed every time.
-- `brief_coverage` is confirmed at 1.00 on the recorded page by both evals.
+- The form failure is deterministic. The agent produced `<form action="#"
+  method="post">` with zero `<script>` tags on 6 of 6 runs across three
+  environments (local, local Docker, and a LangSmith sandbox), and
+  `controls_work` failed every time.
+- `brief_coverage` returns 1.00 on the recorded page in both evaluations.
 - The oracle solution reaches `reward 1.0` locally, so the task is passable.
-- `make verify` gates both directions: the bad page fails for the right
-  reason, the solution still scores 1.0.
+- `make verify` gates both directions: the recorded page must fail for the
+  right reason, and the reference solution must still score 1.0.
 
-**Not verified — do not promise these.**
+**Not verified, so do not promise it.**
 
-- **No live LLM-judge score has been observed.** Run `make judge` once before
+- No live LLM-judge score has been observed. Run `make judge` once before
   presenting and read the real numbers.
-- `make attempts` and `make haiku` have not been run, so you cannot yet say
-  "five out of five" or "both model tiers."
-- `--agent oracle` has not been run through Harbor end to end.
+- `make attempts` and `make haiku` have not been run, so "five out of five" and
+  "both model tiers" are not yet claims you can make.
+- `--agent oracle` has not been run end to end through Harbor.
 
 **Known weaknesses.**
 
-- `controls_work` is reward-hackable: a visible confirmation message with no
-  network request passes it.
-- `validation_works` is run-dependent — it only fails when the agent adds
-  `novalidate`. One sandbox run omitted it and the check correctly passed.
-- `responsive` and `validation_works` are not mentioned in `instruction.md`,
-  so this task does not meet a strict spec-completeness bar.
+- `controls_work` is reward-hackable. A visible confirmation message with no
+  network request behind it would pass.
+- `validation_works` is run-dependent. It only fails when the agent adds
+  `novalidate`, and one sandbox run omitted it and correctly passed.
+- `responsive` and `validation_works` are not mentioned in `instruction.md`, so
+  this task does not meet a strict specification-completeness bar.
 
 ---
 
 ## Notes from building it
 
-The non-obvious things, so you don't rediscover them:
+The non-obvious things, recorded so nobody has to rediscover them.
 
 - **deepagents 0.7.x does not include `TodoListMiddleware` by default.** Add it
-  explicitly or there is no `write_todos`.
-- **`build_timeout_sec` in `task.toml` is the gate on environment start**
-  (default 600s). The LangSmith environment's own
-  `--ek startup_timeout_seconds` is a *different, inner* timeout — raising it
-  alone does nothing, because the outer one fires first.
+  explicitly or there is no `write_todos` tool.
+- **`build_timeout_sec` in `task.toml` is the gate on environment start**, and
+  it defaults to 600s. The LangSmith environment's own
+  `--ek startup_timeout_seconds` is a different, inner timeout; raising that
+  alone does nothing because the outer one fires first.
 - **`python:3.12-slim` now tracks Debian trixie**, where Playwright 1.49.1's
-  apt list names packages that no longer exist. Pin `-bookworm`.
+  apt list names packages that have been renamed. Pin `-bookworm`.
 - **`--ak project_path=.` with the default `jobs_dir`** makes `copytree`
   recurse into its own output, 64 path segments deep. Hence
   `jobs_dir: /tmp/harbor-jobs` and `project_path: ./deep-agent`.
 - **A LangSmith snapshot record can exist with `status: failed`.** Matching on
-  name alone reports a usable snapshot that is not one — check status.
-- **`fs_capacity_bytes` has a 16 GiB floor** on the Dockerfile path. Not
-  tunable.
-- **A POST back to the page's own URL is not a submission.** Counting it was a
-  false PASS on `controls_work`; the fixture had no `action` while the real
-  agent wrote `action="#"`.
+  name alone will report a usable snapshot that is not one, so check the status.
+- **`fs_capacity_bytes` has a 16 GiB floor** on the Dockerfile path. It is not
+  tunable below that.
+- **A POST back to the page's own URL is not a submission.** Counting it
+  produced a false pass on `controls_work`, because the test fixture had no
+  `action` at all while the real agent wrote `action="#"`.
 - **Serve from a subpath, never the root.** Absolute-path bugs are invisible at
-  `/`. This one shipped a page that rendered completely unstyled while the
-  structural checker reported no errors — found only by looking at the render.
+  `/`. This project once shipped a page that rendered completely unstyled while
+  the structural checker reported no errors, and it was found only by looking
+  at the render.
 
 ---
 
