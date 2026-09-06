@@ -1,0 +1,47 @@
+schema_version = "1.4"
+
+[task]
+name = "site-builder/halden-cycles-booking-form"
+version = "1.0.0"
+description = "A landing page whose booking form actually submits something."
+keywords = ["web", "html", "forms", "browser"]
+
+[metadata]
+category = "web-authoring"
+difficulty_explanation = """
+The traditional eval scores this brief 1.00 on structure and 1.00 on
+coverage. The form is present, has three labelled fields, and the page lists
+three prices — every check passes.
+
+And the form does nothing. A static page has nowhere to post to, so the agent
+writes correct markup with no action and no handler. Submitting reloads the
+page with the customer's email in the query string and shows no confirmation.
+
+That failure is invisible to any check that reads source. This task exists to
+catch it by clicking the button.
+"""
+
+[agent]
+timeout_sec = 900
+
+[verifier]
+timeout_sec = 600
+
+[environment]
+cpus = 2
+memory_mb = 4096
+workdir = "/app/site"
+network_mode = "public"
+
+# This is the timeout Harbor's trial layer enforces on environment start, and
+# it defaults to 600s. The LangSmith environment's own
+# `--ek startup_timeout_seconds` is a *different*, inner timeout — raising
+# that alone does nothing, because this one fires first. Building a snapshot
+# from a Dockerfile means a server-side image build plus snapshot creation,
+# which is minutes.
+build_timeout_sec = 2400
+
+# The agent resolves its build directory from SITE_DIR. Without this it falls
+# back to a per-thread workspace and the verifier finds an empty site.
+[environment.env]
+SITE_DIR = "/app/site"

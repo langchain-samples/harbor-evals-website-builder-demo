@@ -1,0 +1,106 @@
+:root {
+  --ink: #1d2a24;
+  --muted: #5a6b62;
+  --paper: #fcfbf8;
+  --wash: #eef3ef;
+  --trail: #2f6b4f;
+  --line: #d9e2dc;
+  --gap: 1.5rem;
+  --radius: 10px;
+  --measure: 68ch;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--paper);
+  font: 17px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap);
+  padding: var(--gap);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand { font-weight: 700; color: var(--trail); }
+
+nav { display: flex; gap: var(--gap); }
+nav a { color: var(--muted); text-decoration: none; }
+nav a:hover { color: var(--trail); text-decoration: underline; }
+
+main { max-width: var(--measure); margin: 0 auto; padding: var(--gap); }
+
+h1 { font-size: 2.4rem; line-height: 1.1; margin: 0 0 0.5rem; }
+h2 { font-size: 1.3rem; margin: 0 0 0.5rem; color: var(--trail); }
+.lede { font-size: 1.15rem; color: var(--muted); margin: 0; }
+
+.panel {
+  background: var(--wash);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--gap);
+  margin-top: var(--gap);
+}
+
+.panel p { margin: 0 0 0.8rem; }
+.panel p:last-child { margin-bottom: 0; }
+
+.tiers {
+  display: grid;
+  gap: var(--gap);
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: var(--gap);
+}
+
+.tier .price {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--trail);
+  margin: 0.2rem 0 0.7rem;
+}
+
+.tier .term { font-size: 0.9rem; font-weight: 400; color: var(--muted); }
+
+.field { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: var(--gap); }
+.field label { font-weight: 600; font-size: 0.95rem; }
+
+input, textarea {
+  font: inherit;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.6rem 0.7rem;
+}
+
+input:focus, textarea:focus { outline: 2px solid var(--trail); outline-offset: 1px; }
+
+button {
+  font: inherit;
+  font-weight: 600;
+  color: var(--paper);
+  background: var(--trail);
+  border: 0;
+  border-radius: 6px;
+  padding: 0.7rem 1.2rem;
+  cursor: pointer;
+}
+
+footer {
+  padding: var(--gap);
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+@media (max-width: 720px) {
+  header { flex-direction: column; align-items: flex-start; }
+  .tiers { grid-template-columns: 1fr; }
+  h1 { font-size: 1.9rem; }
+}

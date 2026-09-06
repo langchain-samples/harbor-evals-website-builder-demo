@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.egg-info/
+.DS_Store
+.env
+
+# Per-session generated sites, eval output, Harbor scratch.
+workspaces/
+runs/
+jobs/
+.harbor/
+
+# demo-pages/ is deliberately NOT ignored: demo-pages/halden-cycles-scored is
+# the recorded artifact `make verify` and `make page` both need.

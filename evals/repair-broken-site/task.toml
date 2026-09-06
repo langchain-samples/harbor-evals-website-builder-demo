@@ -1,0 +1,27 @@
+schema_version = "1.4"
+
+[task]
+name = "website-builder/repair-broken-site"
+version = "1.0.0"
+description = "Repair a broken static site without changing its copy or design."
+keywords = ["website", "html", "repair", "accessibility", "editing"]
+
+[metadata]
+category = "web-authoring"
+difficulty_explanation = """
+The site ships with thirteen structural errors across two pages: no doctype
+and no lang attribute on either, missing viewport meta tags, an empty title, a
+page whose top heading is an h2, an unclosed div, an img with no alt text, a
+nav link on both pages pointing at contact.html when the file is named
+contact-us.html, and a CDN stylesheet alongside the local one.
+
+This is the task that separates an agent that edits from one that regenerates.
+The tempting move is to rewrite both pages from scratch, which fixes the
+markup and destroys the copy — so the content half of the reward checks that
+the original text and page count survived.
+"""
+
+[environment]
+cpus = 2
+memory_mb = 4096
+network_mode = "public"

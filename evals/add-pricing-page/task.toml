@@ -1,0 +1,27 @@
+schema_version = "1.4"
+
+[task]
+name = "website-builder/add-pricing-page"
+version = "1.0.0"
+description = "Extend an existing site with a pricing page that matches its design system."
+keywords = ["website", "html", "css", "design-tokens", "editing"]
+
+[metadata]
+category = "web-authoring"
+difficulty_explanation = """
+The hardest task in the set, because the constraint is consistency with code
+the agent did not write. It starts from a clean two-page site with a real token
+system in :root.
+
+Adding pricing.html is the easy half. The half that fails is everything
+around it: the nav has to be updated on the two pages that already exist, the
+new page has to reuse the existing classes and custom properties instead of
+introducing a fresh palette, and no second stylesheet may appear. An agent
+that treats this as "write a new page" passes the file-exists check and fails
+the rest.
+"""
+
+[environment]
+cpus = 2
+memory_mb = 4096
+network_mode = "public"

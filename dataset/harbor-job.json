@@ -1,0 +1,42 @@
+{
+  "_comment": [
+    "Generated from `harbor run --print-config`, so the schema is Harbor's own.",
+    "Run it with: harbor run --config dataset/harbor-job.json --plugin langsmith ...",
+    "",
+    "Two settings here exist because of specific failures, not preference:",
+    "  jobs_dir  — outside the repo. With the default ./jobs, `project_path` of",
+    "              the repo root makes shutil.copytree recurse into its own",
+    "              output, 64 path segments deep.",
+    "  agents[0].kwargs.project_path — ./deep-agent, not '.', for the same",
+    "              reason plus a much smaller upload.",
+    "",
+    "Not expressible here, so they stay CLI flags:",
+    "  --plugin langsmith --pk dataset_name=...   (plugins are not JobConfig)",
+    "  --ae ANTHROPIC_BASE_URL=...  Harbor forwards ANTHROPIC_API_KEY but NOT",
+    "                               the base URL, so a gateway key 401s.",
+    "  --env-file .env              the harbor CLI does not read .env itself."
+  ],
+  "jobs_dir": "/tmp/harbor-jobs",
+  "n_attempts": 1,
+  "n_concurrent_trials": 1,
+  "environment": {
+    "type": "langsmith",
+    "kwargs": {
+      "snapshot_name": "site-builder-playwright",
+      "create_snapshot": false
+    }
+  },
+  "agents": [
+    {
+      "name": "langgraph",
+      "model_name": "anthropic:claude-sonnet-4-6",
+      "kwargs": {
+        "project_path": "./deep-agent",
+        "graph": "website_builder",
+        "configurable": { "cwd": "/app/site" }
+      }
+    }
+  ],
+  "tasks": [{ "path": "dataset/halden-cycles-booking-form" }],
+  "artifacts": ["/app/site"]
+}

@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Halden Cycles — Bike Repair in Minneapolis</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <a class="brand" href="index.html">Halden Cycles</a>
+    <nav>
+      <a href="#services">Services</a>
+      <a href="#booking">Book a Repair</a>
+    </nav>
+  </header>
+
+  <main>
+
+    <!-- Hero -->
+    <section class="hero">
+      <span class="badge">Minneapolis Bike Shop</span>
+      <h1>Your bike, back on the road.</h1>
+      <p class="lede">Halden Cycles has been keeping Minneapolis riders rolling since 2011. Drop in or book a slot — we work on all makes, from commuters to carbon road bikes.</p>
+      <a class="btn" href="#booking">Book a Repair Slot</a>
+    </section>
+
+    <!-- Services & Prices -->
+    <section id="services">
+      <h2>Services &amp; Pricing</h2>
+      <p class="small">All labour rates include a free safety check. Parts quoted separately before any work begins.</p>
+
+      <div class="grid">
+        <div class="card">
+          <h3>Basic Tune-Up</h3>
+          <p class="price">$55</p>
+          <p>Gear and brake adjustment, cable tension check, tyre inflation, and a full safety inspection. Ready same day for most bikes.</p>
+        </div>
+        <div class="card">
+          <h3>Full Overhaul</h3>
+          <p class="price">$140</p>
+          <p>Drivetrain deep-clean, bearing repack, wheel true, brake bleed or cable replacement, and a comprehensive inspection report.</p>
+        </div>
+        <div class="card">
+          <h3>Flat Repair</h3>
+          <p class="price">$18</p>
+          <p>Tube swap or patch while you wait — usually under 20 minutes. Sealant top-ups for tubeless tyres available too.</p>
+        </div>
+      </div>
+
+      <ul class="list">
+        <li>
+          Wheel True (minor)
+          <strong>$25</strong>
+          <span class="note">Corrects light hops and wobbles. Heavily buckled wheels quoted on inspection.</span>
+        </li>
+        <li>
+          Brake Bleed (hydraulic)
+          <strong>$45</strong>
+          <span class="note">Per brake. Includes mineral oil or DOT fluid — we'll confirm which your bike needs.</span>
+        </li>
+        <li>
+          Drivetrain Replacement
+          <strong>From $80</strong>
+          <span class="note">Chain, cassette, and chainring — labour only. Parts quoted separately.</span>
+        </li>
+        <li>
+          Suspension Fork Service
+          <strong>From $95</strong>
+          <span class="note">Lower leg service or full rebuild depending on fork model and condition.</span>
+        </li>
+        <li>
+          Gear Cable &amp; Housing
+          <strong>$35</strong>
+          <span class="note">Per end. Includes stainless cable and compressionless housing where needed.</span>
+        </li>
+        <li>
+          Custom Build Consultation
+          <strong>Free</strong>
+          <span class="note">Planning a new build or major upgrade? Come in and talk it through with one of our mechanics.</span>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Booking Form -->
+    <section id="booking" class="panel">
+      <span class="badge">Book Online</span>
+      <h2>Request a Repair Slot</h2>
+      <p>Fill in the form and we'll confirm your appointment by email within one business day. Walk-ins are also welcome — we keep a few slots open each morning.</p>
+
+      <form action="#" method="post" novalidate>
+        <div class="grid two">
+          <div class="field">
+            <label for="first-name">First name</label>
+            <input type="text" id="first-name" name="first-name" autocomplete="given-name" required>
+          </div>
+          <div class="field">
+            <label for="last-name">Last name</label>
+            <input type="text" id="last-name" name="last-name" autocomplete="family-name" required>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="email">Email address</label>
+          <input type="email" id="email" name="email" autocomplete="email" required>
+        </div>
+
+        <div class="field">
+          <label for="phone">Phone number <span class="term">(optional)</span></label>
+          <input type="tel" id="phone" name="phone" autocomplete="tel">
+        </div>
+
+        <div class="grid two">
+          <div class="field">
+            <label for="service">Service needed</label>
+            <select id="service" name="service" required>
+              <option value="">— select a service —</option>
+              <option value="basic-tune-up">Basic Tune-Up ($55)</option>
+              <option value="full-overhaul">Full Overhaul ($140)</option>
+              <option value="flat-repair">Flat Repair ($18)</option>
+              <option value="wheel-true">Wheel True ($25)</option>
+              <option value="brake-bleed">Brake Bleed ($45)</option>
+              <option value="drivetrain">Drivetrain Replacement</option>
+              <option value="suspension">Suspension Fork Service</option>
+              <option value="gear-cable">Gear Cable &amp; Housing ($35)</option>
+              <option value="other">Other / Not sure</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="preferred-date">Preferred date</label>
+            <input type="date" id="preferred-date" name="preferred-date">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="bike-details">Bike make, model &amp; year <span class="term">(optional)</span></label>
+          <input type="text" id="bike-details" name="bike-details" placeholder="e.g. Trek FX 3, 2021">
+        </div>
+
+        <div class="field">
+          <label for="notes">Describe the issue</label>
+          <textarea id="notes" name="notes" rows="4" placeholder="Tell us what's going on — any sounds, symptoms, or recent crashes help us prepare."></textarea>
+        </div>
+
+        <button type="submit" class="btn">Send Booking Request</button>
+      </form>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <p><strong>Halden Cycles</strong> · 2847 Lyndale Ave S, Minneapolis, MN 55408 · <a href="tel:+16125550183">(612) 555-0183</a></p>
+    <p>Mon–Fri 8 am – 6 pm &nbsp;·&nbsp; Sat 9 am – 4 pm &nbsp;·&nbsp; Sun closed</p>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,47 @@
+[project]
+name = "website-builder-demo"
+version = "0.1.0"
+description = "A barebones Lovable: a deep agent that builds static sites, graded by Harbor."
+# harbor 0.22 requires >=3.12; the task Dockerfile is 3.12 and langgraph.json 3.13.
+requires-python = ">=3.12,<3.14"
+
+dependencies = [
+    # Agent framework
+    "deepagents>=0.7.8",
+    "langgraph>=1.0.0,<2.0",
+    "langchain>=1.3.10,<2.0",
+    "langchain-core>=1.3.3,<2.0",
+    "langsmith>=0.8.18",
+
+    # Model provider
+    "langchain-anthropic",
+
+    # UI server
+    "fastapi>=0.115",
+    "uvicorn>=0.32",
+
+    # Utilities
+    "python-dotenv",
+    "langgraph-cli[inmem]>=0.4.0",
+
+    # Harbor: the verifier runtime, plus the LangSmith plugin that turns a
+    # job into an experiment. Declared here so `uv sync` gives a clone
+    # everything `make harbor` and `make verify` need.
+    "harbor>=0.22.0,<0.23",
+    "harbor-langsmith>=0.3.1,<0.4",
+
+    # The verifier drives a real browser. Pinned to match the task
+    # Dockerfile, whose apt list is version-specific.
+    "playwright==1.49.1",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["server"]
+
+[tool.ruff]
+lint.select = ["E", "F", "I", "UP"]
+lint.ignore = ["T201", "E501", "UP006", "UP007"]

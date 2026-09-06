@@ -1,0 +1,20 @@
+schema_version = "1.4"
+
+[task]
+name = "website-builder/bakery-landing"
+version = "1.0.0"
+description = "Build a single-page site for a bakery from a short brief."
+keywords = ["website", "html", "css", "single-page"]
+
+[metadata]
+category = "web-authoring"
+difficulty_explanation = """
+The easiest task in the set: one page, no existing code, no navigation to keep
+consistent. It fails when the agent ships placeholder copy, forgets the
+viewport meta tag, or styles inline instead of writing the stylesheet.
+"""
+
+[environment]
+cpus = 2
+memory_mb = 4096
+network_mode = "public"

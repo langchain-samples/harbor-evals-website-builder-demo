@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Site Builder — deep agent demo</title>
+<style>
+  :root {
+    --bg: #0d0f12;
+    --panel: #14171c;
+    --panel-2: #1a1e24;
+    --line: #262b33;
+    --text: #e7eaee;
+    --muted: #8b94a3;
+    --accent: #7dd3a8;
+    --accent-dim: #2a3f36;
+    --radius: 10px;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 14px/1.55 var(--sans);
+    display: flex; flex-direction: column;
+  }
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px; border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  header .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+  header h1 { font-size: 14px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  header .meta { color: var(--muted); font-size: 12px; font-family: var(--mono); }
+  header .spacer { flex: 1; }
+  button {
+    font: inherit; color: var(--text); background: var(--panel-2);
+    border: 1px solid var(--line); border-radius: 7px;
+    padding: 5px 11px; cursor: pointer;
+  }
+  button:hover { border-color: #3a424f; }
+  button:disabled { opacity: .5; cursor: default; }
+
+  main { flex: 1; display: grid; grid-template-columns: 400px 1fr; min-height: 0; }
+
+  /* ---------- chat ---------- */
+  #chat { display: flex; flex-direction: column; border-right: 1px solid var(--line); min-height: 0; }
+  #log { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 100%; }
+  .msg.user {
+    align-self: flex-end; background: var(--panel-2); border: 1px solid var(--line);
+    padding: 8px 12px; border-radius: var(--radius); white-space: pre-wrap;
+  }
+  .msg.agent { white-space: pre-wrap; }
+  .row {
+    display: flex; align-items: baseline; gap: 8px;
+    font-family: var(--mono); font-size: 12px; color: var(--muted);
+  }
+  .row .tag { color: var(--accent); flex-shrink: 0; }
+  .row .path { color: var(--text); overflow-wrap: anywhere; }
+  .row.sub .tag { color: #9db4ff; }
+  .card {
+    border: 1px solid var(--line); background: var(--panel);
+    border-radius: var(--radius); padding: 10px 12px;
+  }
+  .card h3 {
+    margin: 0 0 7px; font-size: 11px; text-transform: uppercase;
+    letter-spacing: .08em; color: var(--muted); font-weight: 600;
+  }
+  .todo { display: flex; gap: 8px; font-size: 13px; padding: 1px 0; }
+  .todo .box { flex-shrink: 0; width: 14px; color: var(--muted); }
+  .todo.completed { color: var(--muted); }
+  .todo.completed .label { text-decoration: line-through; }
+  .todo.completed .box, .todo.in_progress .box { color: var(--accent); }
+  .todo.in_progress { color: var(--text); }
+  details.report { font-family: var(--mono); font-size: 12px; }
+  details.report summary { cursor: pointer; color: var(--muted); }
+  details.report pre {
+    margin: 6px 0 0; white-space: pre-wrap; color: var(--text);
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 7px; padding: 8px; max-height: 260px; overflow: auto;
+  }
+  .err {
+    border: 1px solid #5b2a2a; background: #241618; color: #ffb4b4;
+    border-radius: var(--radius); padding: 8px 11px; font-family: var(--mono); font-size: 12px;
+  }
+  .thinking { color: var(--muted); font-size: 12px; font-family: var(--mono); }
+  .thinking::after { content: "▍"; animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  #composer { border-top: 1px solid var(--line); padding: 12px; background: var(--panel); }
+  #chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 9px; }
+  #chips button { font-size: 12px; color: var(--muted); padding: 4px 9px; }
+  #composer .box { display: flex; gap: 8px; align-items: flex-end; }
+  textarea {
+    flex: 1; resize: none; font: inherit; color: var(--text);
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 9px 11px; min-height: 42px; max-height: 160px;
+  }
+  textarea:focus { outline: none; border-color: #3a424f; }
+  #send { background: var(--accent); color: #06120c; border-color: transparent; font-weight: 600; }
+
+  /* ---------- preview ---------- */
+  #right { display: flex; flex-direction: column; min-width: 0; }
+  #tabs {
+    display: flex; align-items: center; gap: 4px;
+    padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  #tabs .tab { font-size: 12px; padding: 4px 10px; background: transparent; border-color: transparent; color: var(--muted); }
+  #tabs .tab.active { background: var(--panel-2); border-color: var(--line); color: var(--text); }
+  #tabs .spacer { flex: 1; }
+  #tabs .url { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  #stage { flex: 1; position: relative; background: #fff; min-height: 0; }
+  iframe { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
+  #empty {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    background: var(--bg); color: var(--muted); font-size: 13px; text-align: center; padding: 24px;
+  }
+  #code { flex: 1; display: none; grid-template-columns: 200px 1fr; min-height: 0; }
+  #code.on { display: grid; }
+  #files { border-right: 1px solid var(--line); overflow-y: auto; padding: 8px; background: var(--panel); }
+  #files button {
+    display: block; width: 100%; text-align: left; background: transparent;
+    border-color: transparent; font-family: var(--mono); font-size: 12px;
+    color: var(--muted); padding: 4px 7px;
+  }
+  #files button.active { background: var(--panel-2); border-color: var(--line); color: var(--text); }
+  #source { margin: 0; overflow: auto; padding: 14px; font-family: var(--mono); font-size: 12px; line-height: 1.6; }
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+    #chat { border-right: 0; border-bottom: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <span class="dot"></span>
+  <h1>Site Builder</h1>
+  <span class="meta" id="model">deep agent</span>
+  <span class="spacer"></span>
+  <span class="meta" id="sid"></span>
+  <button id="new">New site</button>
+</header>
+
+<main>
+  <section id="chat">
+    <div id="log"></div>
+    <div id="composer">
+      <div id="chips"></div>
+      <div class="box">
+        <textarea id="input" rows="1" placeholder="Describe the site you want…"></textarea>
+        <button id="send">Build</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="right">
+    <div id="tabs">
+      <button class="tab active" data-view="preview">Preview</button>
+      <button class="tab" data-view="code">Code</button>
+      <span class="spacer"></span>
+      <span class="url" id="url"></span>
+      <button id="open">Open ↗</button>
+    </div>
+    <div id="stage">
+      <iframe id="frame" title="Live preview of the generated site"></iframe>
+      <div id="empty">Nothing built yet.<br>Describe a site on the left and watch it appear here.</div>
+    </div>
+    <div id="code">
+      <div id="files"></div>
+      <pre id="source"></pre>
+    </div>
+  </section>
+</main>
+
+<script>
+const EXAMPLES = [
+  "A landing page for Rye & Co, a sourdough bakery in Portland",
+  "A three-page site for a dog-walking business: home, services, contact",
+  "A one-page portfolio for a freelance illustrator, dark and typographic",
+];
+
+let sid = null, files = [], activeFile = null, busy = false;
+
+const $ = (id) => document.getElementById(id);
+const log = $("log");
+
+function scroll() { log.scrollTop = log.scrollHeight; }
+
+function el(tag, cls, text) {
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text != null) node.textContent = text;
+  log.appendChild(node);
+  scroll();
+  return node;
+}
+
+async function newSession() {
+  const res = await fetch("/api/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+  const data = await res.json();
+  sid = data.session_id;
+  files = data.files || []; activeFile = null;
+  log.innerHTML = "";
+  $("sid").textContent = sid;
+  $("model").textContent = data.model;
+  $("source").textContent = "";
+  renderFiles();
+  // The scaffold ships with the session, so the preview is never empty.
+  if (files.length) {
+    refreshPreview();
+  } else {
+    $("url").textContent = "";
+    $("frame").removeAttribute("src");
+    $("empty").style.display = "grid";
+  }
+}
+
+function renderFiles() {
+  const box = $("files");
+  box.innerHTML = "";
+  files.forEach((f) => {
+    const b = document.createElement("button");
+    b.textContent = f.path;
+    if (f.path === activeFile) b.classList.add("active");
+    b.onclick = () => showFile(f.path);
+    box.appendChild(b);
+  });
+}
+
+async function showFile(path) {
+  activeFile = path;
+  renderFiles();
+  const res = await fetch(`/api/file?session_id=${sid}&path=${encodeURIComponent(path)}`);
+  const data = await res.json();
+  $("source").textContent = data.content;
+}
+
+function refreshPreview() {
+  if (!files.some((f) => f.path === "index.html")) return;
+  const url = `/preview/${sid}/index.html?t=${Date.now()}`;
+  $("frame").src = url;
+  $("url").textContent = `/preview/${sid}/index.html`;
+  $("empty").style.display = "none";
+}
+
+function renderTodos(card, todos) {
+  card.innerHTML = "<h3>Plan</h3>";
+  todos.forEach((t) => {
+    const row = document.createElement("div");
+    row.className = `todo ${t.status}`;
+    const box = document.createElement("span");
+    box.className = "box";
+    box.textContent = t.status === "completed" ? "✓" : t.status === "in_progress" ? "▸" : "○";
+    const label = document.createElement("span");
+    label.className = "label";
+    label.textContent = t.content;
+    row.append(box, label);
+    card.appendChild(row);
+  });
+  scroll();
+}
+
+function setBusy(state) {
+  busy = state;
+  $("send").disabled = state;
+  $("send").textContent = state ? "Building…" : "Build";
+}
+
+async function send(text) {
+  if (busy || !text.trim()) return;
+  if (!sid) await newSession();
+  el("div", "msg user", text);
+  $("input").value = "";
+  setBusy(true);
+
+  let bubble = null, todoCard = null;
+  const toolRows = new Map();
+  const pending = el("div", "thinking", "thinking");
+
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sid, message: text }),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const parts = buf.split("\n\n");
+      buf = parts.pop();
+
+      for (const part of parts) {
+        const line = part.split("\n").find((l) => l.startsWith("data: "));
+        if (!line) continue;
+        const ev = JSON.parse(line.slice(6));
+        pending.remove();
+
+        if (ev.type === "text") {
+          if (!bubble) bubble = el("div", "msg agent", "");
+          bubble.textContent += ev.text;
+          scroll();
+        } else if (ev.type === "subagent_text") {
+          // Subagent narration is kept out of the main transcript.
+        } else if (ev.type === "todos") {
+          if (!todoCard) todoCard = el("div", "card");
+          renderTodos(todoCard, ev.todos);
+          bubble = null;
+        } else if (ev.type === "tool") {
+          const row = el("div", `row${ev.agent && ev.agent !== "builder" ? " sub" : ""}`);
+          const tag = document.createElement("span");
+          tag.className = "tag";
+          tag.textContent = ev.label;
+          const detail = document.createElement("span");
+          detail.className = "path";
+          detail.textContent = ev.detail || "…";
+          row.append(tag, detail);
+          // Announced while its arguments are still streaming, so remember the
+          // row and fill in the path when it arrives.
+          if (ev.id) toolRows.set(ev.id, detail);
+          bubble = null;
+        } else if (ev.type === "tool_detail") {
+          const detail = toolRows.get(ev.id);
+          if (detail) detail.textContent = ev.detail || "";
+        } else if (ev.type === "tool_result") {
+          const d = document.createElement("details");
+          d.className = "report";
+          const s = document.createElement("summary");
+          s.textContent = ev.name === "check_site" ? "site check report" : "subagent report";
+          const pre = document.createElement("pre");
+          pre.textContent = ev.text;
+          d.append(s, pre);
+          log.appendChild(d);
+          bubble = null;
+          scroll();
+        } else if (ev.type === "files") {
+          files = ev.files;
+          renderFiles();
+          refreshPreview();
+          if (activeFile) showFile(activeFile);
+        } else if (ev.type === "error") {
+          el("div", "err", ev.message);
+          bubble = null;
+        }
+      }
+    }
+  } catch (err) {
+    pending.remove();
+    el("div", "err", String(err.message || err));
+  } finally {
+    pending.remove();
+    setBusy(false);
+    refreshPreview();
+  }
+}
+
+// ---------- wiring ----------
+$("send").onclick = () => send($("input").value);
+$("input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send($("input").value); }
+});
+$("input").addEventListener("input", (e) => {
+  e.target.style.height = "auto";
+  e.target.style.height = Math.min(e.target.scrollHeight, 160) + "px";
+});
+$("new").onclick = () => newSession();
+$("open").onclick = () => sid && files.length && window.open(`/preview/${sid}/index.html`, "_blank");
+
+document.querySelectorAll("#tabs .tab").forEach((tab) => {
+  tab.onclick = () => {
+    document.querySelectorAll("#tabs .tab").forEach((t) => t.classList.remove("active"));
+    tab.classList.add("active");
+    const code = tab.dataset.view === "code";
+    $("code").classList.toggle("on", code);
+    $("stage").style.display = code ? "none" : "block";
+    if (code && !activeFile && files.length) showFile(files[0].path);
+  };
+});
+
+EXAMPLES.forEach((ex) => {
+  const b = document.createElement("button");
+  b.textContent = ex.length > 46 ? ex.slice(0, 44) + "…" : ex;
+  b.title = ex;
+  b.onclick = () => { $("input").value = ex; $("input").focus(); };
+  $("chips").appendChild(b);
+});
+
+newSession();
+</script>
+</body>
+</html>
