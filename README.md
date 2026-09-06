@@ -127,6 +127,8 @@ the deep agent behaviour: it plans first, reads `styles.css` before writing
 anything so it composes from existing design tokens instead of inventing a
 palette, writes the page, then calls `check_site` on itself.
 
+<img width="1720" height="968" alt="image" src="https://github.com/user-attachments/assets/d8a0dd5a-1aa5-4a47-b4ef-974cd22100e6" />
+
 Follow up with *"make the hero darker."* That takes about 20 seconds and one
 `edit_file` call. The site is on disk and the thread is checkpointed, so a
 second turn edits the existing site rather than regenerating it.
@@ -174,8 +176,11 @@ uv run python traditional/run_eval.py --dataset-only         # sync the dataset 
 Results land in LangSmith as the `site-builder-briefs` experiment.
 
 <!-- SCREENSHOT: LangSmith `site-builder-briefs` experiment, evaluator columns green across the row -->
+<img width="1448" height="825" alt="image" src="https://github.com/user-attachments/assets/05e96919-9433-43b8-8310-cc6b285adfdd" />
+
 
 <!-- SCREENSHOT: the judge's reasoning expanded on the halden-cycles-booking-form row -->
+
 
 On the `halden-cycles-booking-form` brief, the code evaluators return **1.00
 for structure and 1.00 for coverage.** Every requirement in the brief is
@@ -403,6 +408,10 @@ make results                   # print the last result without spending anything
 A trial costs roughly $0.20 and takes about 90 seconds.
 
 <!-- SCREENSHOT: LangSmith Harbor experiment, per-metric feedback columns with controls_work at 0.00 -->
+
+<img width="1327" height="439" alt="image" src="https://github.com/user-attachments/assets/4d11aabe-45b8-422e-9a46-1c086230d80c" />
+
+<img width="1146" height="684" alt="image" src="https://github.com/user-attachments/assets/fe1c13b6-0fd3-49cd-b82c-7943f2f216ed" />
 
 ```
 renders             1.0
