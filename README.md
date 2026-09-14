@@ -15,11 +15,11 @@ on exactly one, and that disagreement is the point of this repository.
 **Traditional evaluations read what the agent produced.** You assemble a
 dataset of inputs, run the agent across them, and score the outputs with code
 assertions, string matching, or an LLM judge. This works well when the output
-*is* the answer: a summary, a classification, a SQL query, a drafted reply.
+*is* the answer: a summary, a classification, a SQL query, a drafted reply, or even the whole message history and agent state.
 The artifact under test and the thing being graded are the same object, so
 reading one tells you about the other.
 
-**Deep agents break that equivalence.** A deep agent plans, delegates to
+**Complex agents that modify their environment (and specifically deep agents) break that equivalence.** A deep agent plans, delegates to
 subagents, and writes to a filesystem across many turns. What it returns is not
 an answer but a change to a world: files on disk, a migrated schema, a
 restructured repository, a website that now exists. The final message is a
@@ -34,7 +34,7 @@ isolated environment per trial, runs the agent inside it, then executes a
 verifier against the environment the agent leaves behind. Because the verifier
 runs in that same environment, it can do what a judge cannot: serve the site,
 start a browser, fill in a form, click the button, and assert on what actually
-happens. Harbor's contract is deliberately narrow. Write a number to
+happens. Harbor's contract is deliberately narrow. Write metrics you want to compute
 `/logs/verifier/reward.json`, and Harbor supplies everything around it, namely
 per-trial provisioning, parallel fan-out, repeated attempts for variance, and
 reporting into LangSmith.
@@ -98,7 +98,7 @@ the only thing that changes is which directory it builds into.
                                               serve over HTTP,
                                               drive Chromium
                                                       ▼
-                                          /logs/verifier/reward.json
+                                          /logs/verifier/.json
                                                       │
                                             LangSmith experiment
 ```
